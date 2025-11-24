@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>devilalstreamz Live 2.1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+
+    <!-- Plyr + HLS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.6.12/dist/plyr.css" />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.1.4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plyr@3.6.12"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: "Poppins", system-ui, sans-serif;
+            background: radial-gradient(circle at top, #001628 0%, #000 100%);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            padding: 1rem;
+            font-size: 1.4rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #005eff, #00b3ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 10px rgba(0, 153, 255, 0.4);
+        }
+
+        .player-wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            position: relative;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 183, 255, 0.4);
+            background: rgba(15, 25, 35, 0.9);
+            border: 2px solid rgba(0, 183, 255, 0.3);
+        }
+
+        video {
+            width: 100%;
+            display: block;
+            border-radius: 20px;
+        }
+
+        .telegram-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(90deg, #0088cc, #00c6ff);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 150, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .telegram-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.8);
+        }
+
+        .telegram-btn img {
+            width: 26px;
+            height: 26px;
+        }
+
+        .share-section {
+            max-width: 960px;
+            margin: 1rem auto;
+            text-align: center;
+        }
+
+        .share-btn {
+            background: linear-gradient(90deg, #005eff, #00b3ff);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .share-btn:hover {
+            background: linear-gradient(90deg, #00b3ff, #005eff);
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 600px) {
+            .header {
+                font-size: 1.2rem;
+            }
+
+            .share-btn {
+                width: 80%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">🏏 randomstreamz — Live Stream</div>
+
+    <div class="player-wrapper">
+        <video id="player" autoplay controls crossorigin playsinline></video>
+    </div>
+
+    <div class="share-section">
+        <button id="btnShare" class="share-btn">📤 Share This Live Stream</button>
+    </div>
+
+    <button class="telegram-btn" id="tgBtn">
+    <img src="https://cdn-icons-png.flaticon.com/512/2111/2111646.png" alt="Telegram">
+  </button>
+
+    <script>
+        const telegramLink = "z";
+
+    async function getStreamUrl(id) {
+      const res = await fetch("https://raw.githubusercontent.com/Jitendra-unatti/fancode/refs/heads/main/data/fancode.json");
+      const data = await res.json();
+      const match = data.matches.find(m => m.match_id == id);
+      if (!match) return null;
+      const urls = [
+        match.adfree_stream,
+        match.dai_stream,
+        match.STREAMING_CDN?.Primary_Playback_URL,
+        match.STREAMING_CDN?.fancode_cdn,
+        match.STREAMING_CDN?.dai_google_cdn,
+        match.STREAMING_CDN?.cloudfront_cdn,
+        match.STREAMING_CDN?.sony_cdn
+      ].filter(u => u && u !== "Unavailable");
+      return urls[0];
+    }
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const params = new URLSearchParams(location.search);
+      const id = params.get("id");
+      const video = document.getElementById("player");
+      if (!id) return alert("❌ No match ID provided in URL");
+
+      const src = await getStreamUrl(id);
+      if (!src) return alert("❌ No valid source found");
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({ maxMaxBufferLength: 100 });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          const availableQualities = hls.levels
+            .map(l => l.height)
+            .filter((v, i, a) => v && a.indexOf(v) === i)
+            .sort((a, b) => b - a);
+
+          const defaultQuality = availableQualities.includes(1080) ? 1080 : availableQualities[0];
+
+          const player = new Plyr(video, {
+            controls: ['play-large', 'play', 'mute', 'volume', 'settings', 'fullscreen'],
+            settings: ['quality'],
+            quality: {
+              default: defaultQuality,
+              options: availableQualities,
+              forced: true,
+              onChange: q => {
+                hls.levels.forEach((l, i) => {
+                  if (l.height === q) hls.currentLevel = i;
+                });
+              }
+            }
+          });
+
+          // Automatically set to highest quality
+          hls.currentLevel = hls.levels.findIndex(l => l.height === defaultQuality);
+
+          // Fullscreen orientation
+          document.addEventListener("fullscreenchange", () => {
+            if (document.fullscreenElement) {
+              if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock("landscape").catch(() => {});
+              }
+            }
+          });
+        });
+      } else {
+        video.src = src;
+        new Plyr(video);
+      }
+    });
+
+    // Telegram Floating Button
+    document.getElementById("tgBtn").onclick = () => window.open(telegramLink, "_blank");
+
+    // Share functionality
+    document.getElementById("btnShare").onclick = async () => {
+      const shareData = {
+        title: "randomstreamz Live Stream",
+        text: "Watch live cricket on randomstreamz!",
+        url: location.href
+      };
+      if (navigator.share) await navigator.share(shareData);
+      else {
+        await navigator.clipboard.writeText(location.href);
+        alert("✅ Link copied to clipboard!");
+      }
+    };
+    </script>
+</body>
+
+</html>
